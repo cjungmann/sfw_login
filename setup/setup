@@ -6,8 +6,21 @@
 # | demarks equivalent alternatives
 show_usage()
 {
+    echo >&2
     echo "Usage (must run as 'root'):" >&2
-    echo "$ sudo ./setup <install | uninstall>" >&2
+    echo "$ sudo ./setup <install | uninstall> [site name] [database_name]" >&2
+    echo >&2
+    echo "Example:" >&2
+    echo "    The following command will perform serveral steps to create" >&2
+    echo "    a web site that allows user registration with an email and" >&2
+    echo "    password, and the ability to use the email and password to" >&2
+    echo "    later login to the user account." >&2
+    echo >&2
+    echo "    The following command will create an Apache web host named" >&2
+    echo "    'login_demo' (default would be sfw_login) and an MySQL" >&2
+    echo "    database named 'TestLogin' (default would be SFW_Login)." >&2
+    echo >&2
+    echo "$ sudo ./setup install login_demo TestLogin" >&2
     echo >&2
 }
 
@@ -18,19 +31,19 @@ running_as_root() { [ "${USER}" = "root" ]; }
 
 if ! has_minimum_args; then
     echo "At least one parameter ('install' or 'uninstall') is required." >&2
-    echo >&2
     show_usage
     return 1
 elif ! running_as_root; then
     echo "User must run as 'root' to execute scripted commands." >&2
-    echo >&2
     show_usage
     return 1
 fi
 
-dbase="${1:-SFW_Login}"
+action="${1}"
+site_name="${2:-sfw_login}"
+dbase="${3:-SFW_Login}"
 
-confirm_database()
+database_exists()
 {
     query=(
         "SELECT COUNT(*)"
@@ -43,7 +56,7 @@ confirm_database()
     [ $? -eq 0 -a $count = 1 ]
 }
 
-confirm_database_procedure()
+database_procedure_exists()
 {
     local dbase="${1}"
     local pname="${2}"
@@ -56,7 +69,8 @@ confirm_database_procedure()
         )
 
     count=$( mysql -BN -e "${query[*]}" )
-    
+
+    [ $? -eq 0 -a $count -eq 1 ]
 }
 
 fix_default_xsl()
@@ -66,7 +80,7 @@ fix_default_xsl()
 
 get_installed_database_name()
 {
-    token='$xml-stylesheet'
+    token='$database'
     dbase=$( grep "${token}" ../site/*.srm )
     if [[ "${dbase}" =~ "${token}"[[:space:]]*:[[:space:]](.*) ]]; then
         echo "${BASH_REMATCH[1]}"
@@ -99,7 +113,7 @@ install()
 
     cd -
 
-    ./apache_set install
+    ./apache_set install "${site_name}"
 }
 
 uninstall()
@@ -108,12 +122,12 @@ uninstall()
     
     local dbase_name
     local -i response
+
     dbase_name=$( get_installed_database_name )
     if [ $? -eq 0 ]; then
-
-        if confirm_database "${dbase_name}"; then
+        if database_exists "${dbase_name}"; then
             local proc_name="App_User_Confirm_Creds"
-            if confirm_database_procedure "${dbase_name}" "${proc_name}"; then
+            if database_procedure_exists "${dbase_name}" "${proc_name}"; then
                 read -p "Delete database '${dbase_name}' (1 for yes, 0 for no)? " response
                 if [ $? -eq 0 -a $response -eq 1 ]; then
                     mysql -e "DROP DATABASE ${dbase_name}"
@@ -125,24 +139,21 @@ uninstall()
         else
             echo "Database '${dbase_name}' no longer exists." >&2
         fi
+    else
+        echo "Cannot identify database name, so no database was deleted." >&2
     fi
 }
 
 
-if running_as_root; then
-    if [ $# -lt 1 ]; then
-        echo "This command must include a parameter, 'install' or 'uninstall'" >&2
-        show_usage
-    elif [ $1 = "install" ]; then
-        install
-    elif [ $1 = "uninstall" ]; then
-        uninstall
-    else
-        echo "Your parameter, '${$1}' is not either 'install' or 'uninstall'" >&2
-        show_usage
-    fi
+if [ $1 = "install" ]; then
+    install
+    return 0
+elif [ $1 = "uninstall" ]; then
+    uninstall
+    return 0
 else
-    echo "Must run this command as root" >&2
+    echo "Your parameter, '${1}' is not either 'install' or 'uninstall'" >&2
     show_usage
+    return 1
 fi
 
