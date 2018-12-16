@@ -1,0 +1,62 @@
+#!/bin/bash
+
+cfile="/etc/apache2/sites-available/sfw_login.conf"
+running_as_root() { [ "${USER}" = "root" ]; }
+
+install_conf()
+{
+    cd ..
+    path_site="${PWD}/site"
+    cd -
+
+    sedscript="s|#root#|${path_site}|"
+    sed "${sedscript}" sfw_login.conf.template > "${cfile}"
+
+    a2ensite -q sfw_login
+    if [ $? -eq 0 ]; then
+        service apache2 reload
+    else
+        echo "Failed to enable the site." >&2
+        echo >&2
+    fi
+}
+
+uninstall_conf()
+{
+    a2dissite -q sfw_login
+    if [ $? -eq 0 ]; then
+        service apache2 reload
+        rm "${cfile}"
+    else
+        echo "Failed to disable the site." >&2
+        echo >&2
+    fi
+}
+
+show_usage()
+{
+    echo "Usage (must run as 'root'):" >&2
+    echo "$ sudo ./apache_set [install | uninstall]" >&2
+    echo >&2
+}
+
+if [ $# -eq 0 ]; then
+    echo "Missing parameter." >&2
+    show_usage
+elif [[ "$1" =~ 'install|uninstall' ]]; then
+    echo "Unknown parameter '${1}'" >&2
+    show_usage
+elif ! running_as_root; then
+    echo "Not running as 'root'." >&2
+    show_usage
+elif [ "$1" = "install" ]; then
+    install_conf
+elif [ "$1" = "uninstall" ]; then
+    uninstall_conf
+else
+    echo "Unknown error" >&2
+    show_usage
+fi
+
+
+

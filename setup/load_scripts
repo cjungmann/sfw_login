@@ -1,0 +1,41 @@
+#!/bin/bash
+
+dbase="${1:-SFW_Login}"
+
+# -r (raw) to omit tabular ouput
+# -N (--skip-column-names)
+declare -a cmd=(
+    information_schema
+    -r
+    -N
+    -e "SELECT COUNT(*) FROM SCHEMATA WHERE SCHEMA_NAME='$dbase'"
+)
+
+declare -i is_installed=$( mysql "${cmd[@]}" )
+
+if [ $is_installed -eq 0 ]; then
+    echo "Creating a new database"
+    mysql -e "CREATE DATABASE IF NOT EXISTS $dbase"
+    echo "Loading script files"
+    mysql -f "${dbase}" < /usr/local/lib/SchemaServer/install/sys_procs.sql
+fi
+
+mysql "$dbase" < tables.sql
+
+gensfw_session_procs "${dbase}" Session_Info > 0_session.sql
+if [ $? -eq 0 ]; then
+
+    declare -a scripts=( $( ls *.sql ) )
+    for script in "${scripts[@]}"; do
+        if [[ ! "${script}" =~ tables*.sql ]]; then
+           echo "Loading script file ${script}:"
+           mysql "$dbase" < "${script}"
+        fi
+    done
+
+
+    # mysql information_schema -e "SELECT ROUTINE_NAME FROM ROUTINES WHERE ROUTINE_SCHEMA='SMenu'"
+fi
+
+
+

@@ -1,0 +1,64 @@
+$include        : common.srm
+$xml-stylesheet : default.xsl
+$default-mode   : login
+
+# Login and registration forms and processing take place without a valid
+# session, so set session-type=establish to relax the authorization tests.
+login
+   type         : form-page
+   session-type : establish
+   schema-proc  : App_User_Login
+   form-action  : ?login_submit
+   autoload_tag  : lpage
+   button
+      label : Register New User
+      type  : jump
+      url   : ?register
+   schema
+      title : User Login
+      field : email
+         label : Email
+      field : pword
+         label     : Password
+         html-type : password
+
+login_submit
+   type         : form-jump
+   session-type : establish
+   procedure    : App_User_Login
+   result
+      type : variables
+      jumps
+         jump0 : succeeded.htm
+         jump1 : ?login
+
+register
+   type         : form-page
+   session-type : establish
+   schema-proc  : App_User_Create
+   form-action  : ?register_submit
+   button
+      label : Login with Existing User
+      type  : jump
+      url   : ?login
+   schema
+      title : Register New User
+      field : email
+         label : Email
+      field : pword1
+         label     : Password
+         html-type : password
+      field : pword2
+         label     : Password again
+         html-type : password
+
+register_submit
+   type         : form-result
+   drop-salt
+   session-type : establish
+   procedure    : App_User_Create
+   jump         : registered.htm
+
+logout
+   type : abandon-session
+   jump : ?login 

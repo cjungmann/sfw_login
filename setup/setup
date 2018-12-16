@@ -1,0 +1,128 @@
+#!/bin/bash
+
+dbase="${1:-SFW_Login}"
+
+running_as_root() { [ "${USER}" = "root" ]; }
+
+confirm_database()
+{
+    query=(
+        "SELECT COUNT(*)"
+        "FROM information_schema.SCHEMATA"
+        "WHERE SCHEMA_NAME='$1'"
+        )
+    local -i count
+    count=$( mysql -BN -e "${query[*]}" )
+
+    [ $? -eq 0 -a $count = 1 ]
+}
+
+confirm_database_procedure()
+{
+    local dbase="${1}"
+    local pname="${2}"
+    local -i count
+    query=(
+        "SELECT COUNT(*)"
+        "FROM information_schema.ROUTINES"
+        "WHERE ROUTINE_SCHEMA='${dbase}'"
+        "AND ROUTINE_NAME='${pname}'"
+        )
+
+    count=$( mysql -BN -e "${query[*]}" )
+    
+}
+
+show_usage()
+{
+    echo "Usage (must run as 'root'):" >&2
+    echo "$ sudo ./setup [install | uninstall]" >&2
+    echo >&2
+}
+fix_default_xsl()
+{
+    sed "s|\*\*Default SchemaFW Title\*\*|SFW Login Demo|" default.xsl > default.xsl
+}
+
+get_installed_database_name()
+{
+    token='$xml-stylesheet'
+    dbase=$( grep "${token}" ../site/*.srm )
+    if [[ "${dbase}" =~ "${token}"[[:space:]]*:[[:space:]](.*) ]]; then
+        echo "${BASH_REMATCH[1]}"
+        return 0
+    else
+        echo "Failed to find the value" >&2
+        return 1
+    fi
+}
+
+install()
+{
+    # Prepare setup files and install site
+    echo "\$database : ${dbase}" > ../site/common.srm
+    cp -s ../custom/tables.sql .
+    cp -s ../custom/Login.sql .
+
+    ./load_scripts "${dbase}"
+
+    cd ../site
+    # Loading SchemaFW file and directory
+    ln -s /usr/local/lib/schemafw/web_includes includes
+    cp /usr/local/lib/schemafw/default.xsl .
+
+    # Change default titles
+    fix_default_xsl
+
+    # Copy SRM from custom directory
+    cp -s ../custom/Login.srm .
+
+    cd -
+
+    ./apache_set install
+}
+
+uninstall()
+{
+    ./apache_set uninstall
+    
+    local dbase_name
+    local -i response
+    dbase_name=$( get_installed_database_name )
+    if [ $? -eq 0 ]; then
+
+        if confirm_database "${dbase_name}"; then
+            local proc_name="App_User_Confirm_Creds"
+            if confirm_database_procedure "${dbase_name}" "${proc_name}"; then
+                read -p "Delete database '${dbase_name}' (1 for yes, 0 for no)? " response
+                if [ $? -eq 0 -a $response -eq 1 ]; then
+                    mysql -e "DROP DATABASE ${dbase_name}"
+                fi
+            else
+                echo -n "Database '${dbase_name}' is missing procedure"  >&2
+                echo "'${proc_name}'.  Aborting database delete." >&2
+            fi
+        else
+            echo "Database '${dbase_name}' no longer exists." >&2
+        fi
+    fi
+}
+
+
+if running_as_root; then
+    if [ $# -lt 1 ]; then
+        echo "This command must include a parameter, 'install' or 'uninstall'" >&2
+        show_usage
+    elif [ $1 = "install" ]; then
+        install
+    elif [ $1 = "uninstall" ]; then
+        uninstall
+    else
+        echo "Your parameter, '${$1}' is not either 'install' or 'uninstall'" >&2
+        show_usage
+    fi
+else
+    echo "Must run this command as root" >&2
+    show_usage
+fi
+
