@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# https://en.wikipedia.org/wiki/Command-line_interface#Command_description_syntax
+# <...> required elements
+# [...] optional elements
+# | demarks equivalent alternatives
 show_usage()
 {
     echo >&2
