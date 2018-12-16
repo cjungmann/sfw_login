@@ -1,6 +1,6 @@
 # -*- mode:conf -*-
 <VirtualHost *:80>
    DocumentRoot #root#
-   ServerName sfw_login
+   ServerName #name#
    DirectoryIndex Login.srm
 </VirtualHost>
