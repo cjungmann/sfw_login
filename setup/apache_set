@@ -1,7 +1,58 @@
 #!/bin/bash
 
-cfile="/etc/apache2/sites-available/sfw_login.conf"
-running_as_root() { [ "${USER}" = "root" ]; }
+show_usage()
+{
+    echo >&2
+    echo "Usage (must run as 'root'):" >&2
+    echo "$ sudo ./apache_set <install | uninstall> [site name]" >&2
+    echo >&2
+    echo "Example:" >&2
+    echo "    The following command will create and install," >&2
+    echo "    to the official Apache directory /etc/apache2/sites-available," >&2
+    echo "    the file login_demo.conf, in which the host name will be login_demo." >&2
+    echo "$ sudo ./apache_set install login_demo" >&2
+    echo >&2
+}
+
+# Preserve parameter count for boolean function:
+declare -i CMD_ARGC=$#
+
+# Boolean functions to clarify meaning and intent:
+has_minimum_args() { [ $CMD_ARGC -gt 0 ]; }
+running_as_root()  { [ "${USER}" = "root" ]; }
+
+# Confirm script's  minimum operating requirements:
+if ! has_minimum_args; then
+    echo "At least one parameter ('install' or 'uninstall') is required." >&2
+    show_usage
+    return 1
+elif ! running_as_root; then
+    echo "User must run as 'root' to execute scripted commands." >&2
+    show_usage
+    return 1
+fi
+
+# Identify parameter values with names:
+declare action="$1"
+declare site_name="${2:-sfw_login}"
+
+# Manage previous setup breadcrumbs for uninstall:
+declare status_target="./installed_site.txt"
+declare conf_base="/etc/apache2/sites-"
+declare existing_site_name existing_path_conf existing_path_enabled
+
+if [ -f "${status_target}" ]; then
+    existing_site_name=$( <"${status_target}" )
+    existing_path_conf="${conf_base}available/${existing_site_name}.conf"
+    existing_path_enabled="${conf_base}enabled/${existing_site_name}.conf"
+fi
+
+site_installed() { [ -n "${existing_path_conf}" -a -f "${existing_path_conf}" ]; }
+site_enabled()   { [ site_installed && -f "${existing_path_enabled}" ]; }
+save_site_name() { echo "${site_name}" > "${status_target}"; }
+
+# Target for new install, separate from previously existing:
+conf_target="/etc/apache2/sites-available/${site_name}.conf"
 
 install_conf()
 {
@@ -9,10 +60,13 @@ install_conf()
     path_site="${PWD}/site"
     cd -
 
-    sedscript="s|#root#|${path_site}|"
-    sed "${sedscript}" sfw_login.conf.template > "${cfile}"
+    rep_path="s|#root#|${path_site}|"
+    rep_name="s|#name#|${site_name}|"
+    sed -e "${rep_path}" -e "${rep_name}" sfw_login.conf.template > "${conf_target}"
 
-    a2ensite -q sfw_login
+    save_site_name
+
+    a2ensite -q "${site_name}"
     if [ $? -eq 0 ]; then
         service apache2 reload
     else
@@ -23,38 +77,34 @@ install_conf()
 
 uninstall_conf()
 {
-    a2dissite -q sfw_login
+    a2dissite -q "${site_name}"
     if [ $? -eq 0 ]; then
         service apache2 reload
-        rm "${cfile}"
+        rm "${existing_path_conf}"
     else
         echo "Failed to disable the site." >&2
         echo >&2
     fi
 }
 
-show_usage()
-{
-    echo "Usage (must run as 'root'):" >&2
-    echo "$ sudo ./apache_set [install | uninstall]" >&2
-    echo >&2
-}
 
-if [ $# -eq 0 ]; then
-    echo "Missing parameter." >&2
-    show_usage
-elif [[ "$1" =~ 'install|uninstall' ]]; then
-    echo "Unknown parameter '${1}'" >&2
-    show_usage
-elif ! running_as_root; then
-    echo "Not running as 'root'." >&2
-    show_usage
-elif [ "$1" = "install" ]; then
-    install_conf
-elif [ "$1" = "uninstall" ]; then
-    uninstall_conf
+if [ "$action" = "install" ]; then
+    if site_installed; then
+        echo "Site '${site_name}' already installed." >&2
+        echo "Uninstall '${site_name}' or provide a different name." >&2
+        echo >&2
+    else
+        install_conf
+    fi
+elif [ "$action" = "uninstall" ]; then
+    if site_installed; then
+        uninstall_conf
+    else
+        echo "Site '${site_name}' not found, terminating command." >&2
+        echo >&2
+    fi
 else
-    echo "Unknown error" >&2
+    echo "Unknown action parameter '${action}'." >&2
     show_usage
 fi
 
