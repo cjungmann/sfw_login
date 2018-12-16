@@ -147,13 +147,13 @@ uninstall()
 
 if [ $1 = "install" ]; then
     install
-    return 0
+    exit 0
 elif [ $1 = "uninstall" ]; then
     uninstall
-    return 0
+    exit 0
 else
     echo "Your parameter, '${1}' is not either 'install' or 'uninstall'" >&2
     show_usage
-    return 1
+    exit 1
 fi
 
