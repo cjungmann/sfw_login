@@ -1,8 +1,30 @@
 #!/bin/bash
 
-dbase="${1:-SFW_Login}"
+show_usage()
+{
+    echo "Usage (must run as 'root'):" >&2
+    echo "$ sudo ./setup [install | uninstall]" >&2
+    echo >&2
+}
 
+declare -i CMD_ARGC=$#
+
+has_minimum_args() { [ $CMD_ARGC -gt 0 ]; }
 running_as_root() { [ "${USER}" = "root" ]; }
+
+if ! has_minimum_args; then
+    echo "At least one parameter ('install' or 'uninstall') is required." >&2
+    echo >&2
+    show_usage
+    return 1
+elif ! running_as_root; then
+    echo "User must run as 'root' to execute scripted commands." >&2
+    echo >&2
+    show_usage
+    return 1
+fi
+
+dbase="${1:-SFW_Login}"
 
 confirm_database()
 {
@@ -33,12 +55,6 @@ confirm_database_procedure()
     
 }
 
-show_usage()
-{
-    echo "Usage (must run as 'root'):" >&2
-    echo "$ sudo ./setup [install | uninstall]" >&2
-    echo >&2
-}
 fix_default_xsl()
 {
     sed "s|\*\*Default SchemaFW Title\*\*|SFW Login Demo|" default.xsl > default.xsl
