@@ -73,9 +73,14 @@ database_procedure_exists()
     [ $? -eq 0 -a $count -eq 1 ]
 }
 
-fix_default_xsl()
+install_tweaked_default_xsl()
 {
-    sed "s|\*\*Default SchemaFW Title\*\*|SFW Login Demo|" default.xsl > default.xsl
+    local -a cmd=(
+        -e "s^\*\*Default SchemaFW (Title|Header)\*\*^SFW Login Demo^g"
+        # -e "s^\*\*Default SchemaFW Header\*\*^SFW Login Demo^g"
+        /usr/local/lib/schemafw/default.xsl
+    )
+    sed "${cmd[@]}" > ../site/default.xsl
 }
 
 get_installed_database_name()
@@ -103,10 +108,7 @@ install()
     cd ../site
     # Loading SchemaFW file and directory
     ln -s /usr/local/lib/schemafw/web_includes includes
-    cp /usr/local/lib/schemafw/default.xsl .
-
-    # Change default titles
-    fix_default_xsl
+    install_tweaked_default_xsl
 
     # Copy SRM from custom directory
     cp -s ../custom/Login.srm .
@@ -131,10 +133,13 @@ uninstall()
                 read -p "Delete database '${dbase_name}' (1 for yes, 0 for no)? " response
                 if [ $? -eq 0 -a $response -eq 1 ]; then
                     mysql -e "DROP DATABASE ${dbase_name}"
+                    echo "Dropped database '${dbase_name}'" >&2
+                else
+                    echo "Databse '${dbase_name}' was left in place." >&2
                 fi
             else
-                echo -n "Database '${dbase_name}' is missing procedure"  >&2
-                echo "'${proc_name}'.  Aborting database delete." >&2
+                echo -n "Database '${dbase_name}' is missing identifying procedure"  >&2
+                echo "'${proc_name}'.  Aborting suspicious database delete." >&2
             fi
         else
             echo "Database '${dbase_name}' no longer exists." >&2
