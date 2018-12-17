@@ -85,6 +85,7 @@ uninstall_conf()
     if [ $? -eq 0 ]; then
         service apache2 reload
         rm "${existing_path_conf}"
+        rm "${status_target}"
     else
         echo "Failed to disable the site." >&2
         echo >&2
