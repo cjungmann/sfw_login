@@ -76,8 +76,7 @@ database_procedure_exists()
 install_tweaked_default_xsl()
 {
     local -a cmd=(
-        -e "s^\*\*Default SchemaFW (Title|Header)\*\*^SFW Login Demo^g"
-        # -e "s^\*\*Default SchemaFW Header\*\*^SFW Login Demo^g"
+        -e "s^\*\*Default SchemaFW \(Title\|Header\)\*\*^SFW Login Demo^g"
         /usr/local/lib/schemafw/default.xsl
     )
     sed "${cmd[@]}" > ../site/default.xsl
