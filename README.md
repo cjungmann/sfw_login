@@ -21,7 +21,7 @@ prepared for the project to run:
   the back-end environment of the Schema Framework
 - An installed and up-to-date [Schema Framework](https://www.github.com/cjungmann/schemafw),
   the client-side environment that interacts with the SchemaServer.
-- A working installation of *git*.
+- A working installation of *git*.  (`sudo apt-get install git`)
 - A working MySQL installation.
 - Working Apache installation.
 - A directory with appropriate Apache security settings (see below).
