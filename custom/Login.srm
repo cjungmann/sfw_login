@@ -53,11 +53,15 @@ register
          html-type : password
 
 register_submit
-   type         : form-result
+   type         : form-jump
    drop-salt
    session-type : establish
    procedure    : App_User_Create
-   jump         : registered.htm
+   result
+      type : variables
+      jumps
+         jump0 : registered.htm
+         jump1 : ?login
 
 logout
    type : abandon-session
