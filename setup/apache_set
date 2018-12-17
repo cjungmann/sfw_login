@@ -81,7 +81,7 @@ install_conf()
 
 uninstall_conf()
 {
-    a2dissite -q "${site_name}"
+    a2dissite -q "${existing_site_name}"
     if [ $? -eq 0 ]; then
         service apache2 reload
         rm "${existing_path_conf}"
