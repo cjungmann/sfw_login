@@ -2,6 +2,8 @@ setup/0_session.sql
 setup/tables.sql
 setup/Login.sql
 setup/installed_site.txt
+#
 site/includes
-site/Login.srm
 site/default.xsl
+site/common.srm
+site/Login.srm
