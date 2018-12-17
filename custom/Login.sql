@@ -24,6 +24,21 @@ BEGIN
    RETURN ssys_confirm_salted_hash(user_hash, user_salt, pword);
 END $$
 
+-- ----------------------------------------------------
+DROP PROCEDURE IF EXISTS App_User_Set_Session_Values $$
+CREATE PROCEDURE App_User_Set_Session_Values(email VARCHAR(128))
+BEGIN
+   UPDATE Session_Info i
+          INNER JOIN (SELECT @session_confirmed_id AS id_session,
+                             u.id,
+                             u.email
+                        FROM User u
+                       WHERE u.email = email) AS a ON a.id_session = i.id_session
+      SET i.user_id = a.id,
+          i.user_email = a.email
+    WHERE i.id_session = @session_confirmed_id;
+END $$
+
 -- ---------------------------------------
 DROP PROCEDURE IF EXISTS App_User_Login $$
 CREATE PROCEDURE App_User_Login(email VARCHAR(128), pword VARCHAR(40))
@@ -35,17 +50,9 @@ BEGIN
       CALL App_Session_Abandon(@session_confirmed_id);
       SELECT 1 AS error, 'Invalid credentials' AS msg;
    ELSE
-      -- Good session and credentials, setup Session_Info:
-      UPDATE Session_Info i
-             INNER JOIN (SELECT @session_confirmed_id AS id_session,
-                                u.id,
-                                u.email
-                           FROM User u
-                          WHERE u.email = email) AS a ON a.id_session = i.id_session
-         SET i.user_id = a.id,
-             i.user_email = a.email
-       WHERE i.id_session = @session_confirmed_id;
-
+       -- User record initialized in App_User_Confirm_Creds.
+       -- Update session from that information.
+       CALL App_User_Set_Session_Values(email);
        SELECT 0 AS error, 'Successful Login' AS msg;
    END IF;
 END $$
@@ -111,11 +118,8 @@ proc_block: BEGIN
       COMMIT;
 
       IF rcount > 0 THEN
-         CALL App_User_Login(email, pword1);
+         CALL App_User_Set_Session_Values(email);
          SELECT 0 AS error, 'Success' AS msg;
-
-         SELECT email, pword1;
-
          LEAVE proc_block;
       END IF;
    ELSE
