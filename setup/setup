@@ -50,10 +50,11 @@ database_exists()
         "FROM information_schema.SCHEMATA"
         "WHERE SCHEMA_NAME='$1'"
         )
+
     local -i count
     count=$( mysql -BN -e "${query[*]}" )
 
-    [ $? -eq 0 -a $count = 1 ]
+    [ $? -eq 0 -a $count -eq 1 ]
 }
 
 database_procedure_exists()
@@ -70,7 +71,7 @@ database_procedure_exists()
 
     count=$( mysql -BN -e "${query[*]}" )
 
-    [ $? -eq 0 -a $count -eq 1 ]
+    [ $? -eq 0 -a $count -gt 0 ]
 }
 
 install_tweaked_default_xsl()
@@ -95,15 +96,19 @@ get_installed_database_name()
     fi
 }
 
+unlink_installed_files()
+{
+    rm ../site/common.srm
+    rm ../site/default.xsl
+    unlink ../site/Login.srm
+    unlink ../site/includes
+
+    rm ../setup/*.sql
+}
+
 install()
 {
-    # Prepare setup files and install site
-    echo "\$database : ${dbase}" > ../site/common.srm
-    cp -s ../custom/tables.sql .
-    cp -s ../custom/Login.sql .
-
-    ./load_scripts "${dbase}"
-
+    # Copy files and links to the site directory
     cd ../site
     # Loading SchemaFW file and directory
     ln -s /usr/local/lib/schemafw/web_includes includes
@@ -112,15 +117,22 @@ install()
     # Copy SRM from custom directory
     cp -s ../custom/Login.srm .
 
+    # Return to the setup directory
     cd -
 
+    # Prepare setup files and install site
+    echo "\$database : ${dbase}" > ../site/common.srm
+    cp -s ../custom/tables.sql .
+    cp -s ../custom/Login.sql .
+
+    ./load_scripts "${dbase}"
     ./apache_set install "${site_name}"
 }
 
 uninstall()
 {
     ./apache_set uninstall
-    
+
     local dbase_name
     local -i response
 
@@ -146,6 +158,8 @@ uninstall()
     else
         echo "Cannot identify database name, so no database was deleted." >&2
     fi
+
+    unlink_installed_files
 }
 
 
